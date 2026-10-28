@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+psycopg2-binary
+bcrypt
+PyJWT
+python-multipart
+twilio
+google-auth
+google-auth
+requests

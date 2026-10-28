@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Event Booking</title>
+    <!-- NEW: Google Identity Services Script -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        h1 { text-align: center; color: #2c3e50; }
+        
+        /* Auth UI */
+        #auth-section { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto 20px auto; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .btn { color: white; border: none; padding: 12px; cursor: pointer; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 8px; font-size: 15px; transition: 0.2s;}
+        .btn-primary { background: #3498db; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #219653; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-phone { background: #34495e; }
+        .btn-phone:hover { background: #2c3e50; }
+        .toggle-link { text-align: center; display: block; margin-top: 15px; color: #3498db; text-decoration: none; font-size: 0.9em; }
+        
+        .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #888; font-size: 14px; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #ddd; }
+        .divider:not(:empty)::before { margin-right: .25em; }
+        .divider:not(:empty)::after { margin-left: .25em; }
+
+        /* App UI */
+        #app-section { display: none; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        .logout-btn { background: #e74c3c; width: auto; padding: 10px 20px; }
+        .nav-btn { background: #2c3e50; width: auto; padding: 10px 20px; margin-right: 5px; }
+        
+        /* Filter Bar */
+        .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .filter-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        #location-filter { width: 180px; font-weight: bold; cursor: pointer; margin: 0; }
+        #search-filter { width: 250px; margin: 0; }
+
+        /* Cards */
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .event-card { border-left: 5px solid #27ae60; }
+        .booking-card { border-left: 5px solid #9b59b6; }
+        .admin-card { border-left: 5px solid #f39c12; }
+        .card-title { font-size: 1.5em; color: #2c3e50; margin-top: 0; }
+        .stats { color: #7f8c8d; font-size: 0.9em; margin-bottom: 15px; }
+        
+        .required-label { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="main-title">Event Booking Portal</h1>
+
+        <!-- Auth Section -->
+        <div id="auth-section">
+            <div id="login-container">
+                <h2 style="text-align: center; margin-top: 0;">Welcome Back</h2>
+                <form id="login-form">
+                    <input type="email" id="email" placeholder="Email Address" required>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <button type="submit" class="btn btn-primary">Login with Email</button>
+                </form>
+                <div class="divider">OR</div>
+                <button class="btn btn-phone" onclick="showPhoneLogin()">📱 Login with Phone (OTP)</button>
+                
+                <!-- NEW: Official Google Sign-In Button (Replaces the Mock Button) -->
+                <div style="margin-top: 8px;">
+                    <div id="g_id_onload"
+                         data-client_id="421196198288-o5jdi7s68t18tm6jmfliqm4oso3uuluo.apps.googleusercontent.com"
+                         data-callback="handleGoogleResponse">
+                    </div>
+                    <div class="g_id_signin" data-type="standard" data-theme="outline" data-size="large" data-width="100%"></div>
+                </div>
+
+                <a href="#" class="toggle-link" onclick="toggleAuthView('register')">Don't have an account? Register</a>
+            </div>
+
+            <div id="phone-login-container" style="display: none;">
+                <h2 style="text-align: center; margin-top: 0;">Phone Login</h2>
+                <div id="phone-step-1">
+                    <p style="font-size: 14px; color: #666; text-align: center;">Enter your number to receive an OTP.</p>
+                    <input type="tel" id="phone-number" placeholder="+91 98765 43210" required>
+                    <button class="btn btn-primary" onclick="sendMockOTP()">Send OTP</button>
+                </div>
+                <div id="phone-step-2" style="display: none;">
+                    <p style="font-size: 14px; color: #27ae60; text-align: center;">OTP sent to your phone!</p>
+                    <input type="text" id="otp-code" placeholder="Enter 6-digit OTP" required>
+                    <button class="btn btn-success" onclick="verifyMockOTP()">Verify & Login</button>
+                </div>
+                <a href="#" class="toggle-link" onclick="showEmailLogin()">← Back to Email Login</a>
+            </div>
+
+            <div id="register-container" style="display: none;">
+                <h2 style="text-align: center; margin-top: 0;">Create Account</h2>
+                <form id="register-form">
+                    <input type="text" id="reg-name" placeholder="Full Name" required>
+                    <input type="email" id="reg-email" placeholder="Email Address" required>
+                    <input type="password" id="reg-password" placeholder="Choose a Password" required>
+                    <button type="submit" class="btn btn-success">Register</button>
+                </form>
+                <a href="#" class="toggle-link" onclick="toggleAuthView('login')">Already have an account? Login</a>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div id="app-section">
+            <div class="header-bar">
+                <div>
+                    <button class="btn nav-btn" onclick="showView('events')">🔍 Browse Events</button>
+                    <button class="btn nav-btn" onclick="showView('dashboard')">My Dashboard</button>
+                    <button class="btn nav-btn" style="background: #f39c12;" onclick="showView('admin')">+ Create Event</button>
+                </div>
+                <button class="btn logout-btn" onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="view-header">
+                <h2 id="view-title" style="margin: 0;">Available Events</h2>
+                
+                <div class="filter-controls" id="filter-container">
+                    <input type="text" id="search-filter" placeholder="🔍 Search event names..." oninput="fetchEvents()">
+                    <select id="location-filter" onchange="fetchEvents()">
+                        <option value="ALL">📍 All Locations</option>
+                        <option value="Coimbatore">Coimbatore</option>
+                        <option value="Chennai">Chennai</option>
+                        <option value="Madurai">Madurai</option>
+                        <option value="Trichy">Trichy</option>
+                        <option value="Salem">Salem</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="content-container">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+
+        // Auth UI
+        function toggleAuthView(view) {
+            document.getElementById('login-container').style.display = view === 'register' ? 'none' : 'block';
+            document.getElementById('register-container').style.display = view === 'register' ? 'block' : 'none';
+            document.getElementById('phone-login-container').style.display = 'none';
+        }
+        function showPhoneLogin() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('phone-login-container').style.display = 'block';
+            document.getElementById('phone-step-1').style.display = 'block';
+            document.getElementById('phone-step-2').style.display = 'none';
+        }
+        function showEmailLogin() {
+            document.getElementById('phone-login-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        }
+        
+        function sendMockOTP() {
+            const phone = document.getElementById("phone-number").value;
+            if (phone.length < 10) return alert("Please enter a valid phone number.");
+            document.getElementById('phone-step-1').style.display = 'none';
+            document.getElementById('phone-step-2').style.display = 'block';
+        }
+        function verifyMockOTP() {
+            const otp = document.getElementById("otp-code").value;
+            if (otp.length < 4) return alert("Please enter the OTP.");
+            alert("OTP Verified! (Mocked)");
+            window.location.reload(); 
+        }
+
+        // --- NEW: Real Google Login Handling Function ---
+        async function handleGoogleResponse(response) {
+            try {
+                const res = await fetch(`${API_URL}/auth/google`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: response.credential })
+                });
+                const data = await res.json();
+                
+                if (res.ok && !data.error) {
+                    localStorage.setItem("token", data.access_token); 
+                    checkAuthStatus();
+                    alert(`Welcome, ${data.email}!`);
+                } else {
+                    const errorMessage = data.error || data.detail || "Unknown Backend Error";
+                    alert("Google Authentication failed: " + errorMessage);
+                }
+            } catch (error) {
+                alert("Server error connecting to Google Auth.");
+            }
+        }
+
+        // Email Auth 
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new URLSearchParams();
+            formData.append("username", document.getElementById("email").value);
+            formData.append("password", document.getElementById("password").value);
+            try {
+                const response = await fetch(`${API_URL}/login`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formData });
+                const data = await response.json();
+                if (response.ok) { localStorage.setItem("token", data.access_token); checkAuthStatus(); } 
+                else alert("Login failed: " + data.detail);
+            } catch (error) { alert("Could not connect to the backend server."); }
+        });
+
+        document.getElementById("register-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = { name: document.getElementById("reg-name").value, email: document.getElementById("reg-email").value, password_hash: document.getElementById("reg-password").value, role: "user" };
+            try {
+                const response = await fetch(`${API_URL}/users/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                if (response.ok) { alert("Account created! You can now log in."); document.getElementById("register-form").reset(); toggleAuthView('login'); } 
+                else alert("Registration failed.");
+            } catch (error) { alert("Server error."); }
+        });
+
+        function logout() { localStorage.removeItem("token"); checkAuthStatus(); }
+        function checkAuthStatus() {
+            if (localStorage.getItem("token")) {
+                document.getElementById("auth-section").style.display = "none";
+                document.getElementById("app-section").style.display = "block";
+                document.getElementById("main-title").style.display = "none";
+                showView('events');
+            } else {
+                document.getElementById("auth-section").style.display = "block";
+                document.getElementById("app-section").style.display = "none";
+                document.getElementById("main-title").style.display = "block";
+            }
+        }
+
+        // App Views
+        function showView(viewName) {
+            const container = document.getElementById("content-container");
+            const filterContainer = document.getElementById("filter-container");
+
+            if (viewName === 'events') {
+                document.getElementById("view-title").innerText = "Available Events";
+                filterContainer.style.display = "flex"; // Show search & dropdown
+                fetchEvents();
+            } else if (viewName === 'dashboard') {
+                document.getElementById("view-title").innerText = "My Ticket Dashboard";
+                filterContainer.style.display = "none"; // Hide on dashboard
+                fetchDashboard();
+            } else if (viewName === 'admin') {
+                document.getElementById("view-title").innerText = "Admin: Create New Event";
+                filterContainer.style.display = "none"; // Hide on admin page
+                
+                container.innerHTML = `
+                    <div class="card admin-card">
+                        <form id="create-event-form">
+                            <label class="required-label">Event Title *</label>
+                            <input type="text" id="ev-title" placeholder="e.g., Tech Conference 2026" required>
+                            
+                            <label class="required-label">Mandatory City Location *</label>
+                            <select id="ev-location" required style="font-weight: normal; width: 100%; border-left: 3px solid #e74c3c;">
+                                <option value="" disabled selected>-- Select a City --</option>
+                                <option value="Coimbatore">Coimbatore</option>
+                                <option value="Chennai">Chennai</option>
+                                <option value="Madurai">Madurai</option>
+                                <option value="Trichy">Trichy</option>
+                                <option value="Salem">Salem</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            
+                            <label class="required-label">Date and Time *</label>
+                            <input type="datetime-local" id="ev-date" required>
+                            
+                            <label class="required-label">Total Capacity *</label>
+                            <input type="number" id="ev-capacity" placeholder="e.g., 250" required min="1">
+                            
+                            <label class="required-label">Event Description *</label>
+                            <textarea id="ev-desc" placeholder="Describe the event..." rows="3" required></textarea>
+                            
+                            <button type="submit" class="btn btn-full btn-success">Publish Event</button>
+                        </form>
+                    </div>
+                `;
+                document.getElementById("create-event-form").addEventListener("submit", createEvent);
+            }
+        }
+
+        async function fetchEvents() {
+            try {
+                const response = await fetch(`${API_URL}/events/`);
+                let events = await response.json();
+                
+                // Get values from BOTH filters
+                const selectedLocation = document.getElementById("location-filter").value;
+                const searchQuery = document.getElementById("search-filter").value.toLowerCase();
+
+                // 1. Filter by Location
+                if (selectedLocation !== "ALL") {
+                    events = events.filter(event => event.location.toLowerCase().includes(selectedLocation.toLowerCase()));
+                }
+                
+                // 2. Filter by Text Search (Live as they type!)
+                if (searchQuery.trim() !== "") {
+                    events = events.filter(event => event.title.toLowerCase().includes(searchQuery));
+                }
+
+                const container = document.getElementById("content-container");
+                if (events.length === 0) return container.innerHTML = `<p>No events found matching your search.</p>`;
+                
+                container.innerHTML = events.map(event => `
+                    <div class="card event-card">
+                        <h2 class="card-title">${event.title}</h2>
+                        <p class="stats">📅 ${new Date(event.event_date).toLocaleString()} | 📍 ${event.location}</p>
+                        <p>${event.description}</p>
+                        <p><strong>Tickets Available:</strong> ${event.available_tickets} / ${event.total_capacity}</p>
+                        <button class="btn btn-success" onclick="bookTicket(${event.id})" ${event.available_tickets <= 0 ? "disabled" : ""}>
+                            ${event.available_tickets <= 0 ? "Sold Out" : "Book Ticket"}
+                        </button>
+                    </div>
+                `).join('');
+            } catch (error) { document.getElementById("content-container").innerHTML = "Error loading events."; }
+        }
+
+        async function fetchDashboard() {
+            const token = localStorage.getItem("token");
+            try {
+                const response = await fetch(`${API_URL}/my-bookings/`, { headers: { "Authorization": `Bearer ${token}` } });
+                if (response.status === 401) { logout(); return; }
+                const bookings = await response.json();
+                const container = document.getElementById("content-container");
+                
+                if (bookings.length === 0) return container.innerHTML = "<p>You haven't booked any tickets yet!</p>";
+                
+                container.innerHTML = bookings.map(b => `
+                    <div class="card booking-card">
+                        <h2 class="card-title">🎟️ ${b.event_title}</h2>
+                        <p class="stats"><strong>Booking ID:</strong> #${b.booking_id} | <strong>Event Date:</strong> ${new Date(b.event_date).toLocaleString()}</p>
+                        <p><strong>Location:</strong> ${b.location}</p>
+                        
+                        <!-- NEW: Cancel Button -->
+                        <button class="btn btn-danger" style="width: auto; margin-top: 10px;" onclick="cancelBooking(${b.booking_id})">
+                            Cancel Booking
+                        </button>
+                    </div>
+                `).join('');
+            } catch (error) { document.getElementById("content-container").innerHTML = "Error loading dashboard."; }
+        }
+        // --- NEW: Cancel Booking Action ---
+        async function cancelBooking(bookingId) {
+            // Ask for confirmation before deleting
+            if (!confirm("Are you sure you want to cancel this ticket? This cannot be undone.")) return;
+            
+            const token = localStorage.getItem("token");
+            try {
+                const response = await fetch(`${API_URL}/bookings/${bookingId}`, { 
+                    method: "DELETE", 
+                    headers: { "Authorization": `Bearer ${token}` } 
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) { 
+                    alert("Ticket successfully cancelled!"); 
+                    fetchDashboard(); // Instantly refresh the dashboard 
+                } else { 
+                    alert("Error: " + result.detail);
+                }
+            } catch (error) { 
+                alert("Failed to connect to the server to cancel the booking."); 
+            }
+        }
+        async function bookTicket(eventId) {
+            const token = localStorage.getItem("token");
+            try {
+                const response = await fetch(`${API_URL}/bookings/`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ user_id: 0, event_id: eventId }) });
+                const result = await response.json();
+                if (response.ok) { alert("Success! Ticket booked."); fetchEvents(); } 
+                else { 
+                    if (result.detail && (result.detail.includes("duplicate key") || result.detail.includes("already exists"))) {
+                        alert("You have already booked a ticket for this event!");
+                    } else alert("Error: " + result.detail);
+                }
+            } catch (error) { alert("Failed to process booking."); }
+        }
+
+        async function createEvent(e) {
+            e.preventDefault();
+            const locationDropdown = document.getElementById("ev-location");
+            if (locationDropdown.value === "") {
+                alert("Error: You must select a valid city from the dropdown before publishing.");
+                return; 
+            }
+            const payload = {
+                title: document.getElementById("ev-title").value,
+                location: locationDropdown.value,
+                event_date: document.getElementById("ev-date").value.replace('T', ' ') + ':00',
+                total_capacity: parseInt(document.getElementById("ev-capacity").value),
+                description: document.getElementById("ev-desc").value
+            };
+            try {
+                const response = await fetch(`${API_URL}/events/create`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                if (response.ok) { alert("Event successfully created!"); showView('events'); } 
+                else alert("Failed to create event.");
+            } catch (error) { alert("Server error."); }
+        }
+
+        checkAuthStatus();
+    </script>
+</body>
+</html>
